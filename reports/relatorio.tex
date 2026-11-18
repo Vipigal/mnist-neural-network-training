@@ -20,10 +20,6 @@
 
 \setcounter{secnumdepth}{0}
 
-% Marcador das partes a escrever. Apagar todas as ocorrências antes de entregar
-% (grep -n nota relatorio.tex).
-\newcommand{\nota}[1]{\textit{[#1]}}
-
 \title{Redes Neurais Artificiais para Classificação de Dígitos Manuscritos (MNIST)}
 \author{
     Vinicius Pinho Galvão
@@ -40,50 +36,33 @@
 
 % ---------------------------------------------------------------------------
 \section{Introdução e Objetivo}
-\nota{A escrever. Pontos:
-(1) o problema: classificar imagens 28$\times$28 de dígitos 0--9 do MNIST (70.000 imagens), classificação multiclasse com $C = 10$;
-(2) o que foi feito: uma RNA de duas camadas (uma escondida, uma de saída) implementada do zero em NumPy, treinada por gradiente descendente;
-(3) o objetivo: entender cada peça (propagação, ativações, perda, gradiente) e medir o efeito da taxa de aprendizado, do número de épocas e do número de neurônios;
-(4) o resultado principal: 95,44\% de acurácia de teste com $\alpha = 0{,}5$, 256 neurônios e 500 épocas; e a observação de que, na interface, foi preciso aprender a desenhar com o centro de massa próximo ao do MNIST.}
+O MNIST reúne 70.000 imagens de 28$\times$28 pixels de dígitos manuscritos; reconhecê-los é um problema de classificação multiclasse com $C = 10$. Neste trabalho foi implementada do zero, em NumPy, uma RNA de duas camadas (uma escondida e uma de saída) treinada por gradiente descendente, com o objetivo de entender cada peça (propagação, ativações, perda e gradiente) e medir o efeito da taxa de aprendizado, do número de épocas e do número de neurônios. A melhor configuração ($\alpha = 0{,}5$, 256 neurônios, 500 épocas) atingiu 95,44\% de acurácia de teste. Na interface, porém, foi preciso aprender a desenhar com o centro de massa do dígito próximo ao das imagens do MNIST para que a rede acertasse.
 
 % ---------------------------------------------------------------------------
 \section{Metodologia}
 
-\subsection{Dados}
-\nota{A escrever. Fatos: \texttt{load\_mnist} carrega o MNIST do OpenML; pixels normalizados para $[0,1]$ (divisão por 255); divisão aleatória 80/20 (\texttt{random\_state} = 42), 56.000 imagens de treino e 14.000 de teste; rótulos em \emph{one-hot}. Cada imagem vira um vetor de 784 entradas, e as matrizes têm um exemplo por \textbf{linha}.}
+\subsection{Dados e Arquitetura}
+A função \texttt{load\_mnist} carrega o MNIST do OpenML, normaliza os pixels para $[0,1]$ (divisão por 255), divide os dados aleatoriamente em 80/20 (\texttt{random\_state} = 42), com 56.000 imagens de treino e 14.000 de teste, e codifica os rótulos em \emph{one-hot}. Cada imagem vira um vetor de 784 entradas, e as matrizes têm um exemplo por linha.
 
-\subsection{Arquitetura e Inicialização}
-\nota{A escrever. Fatos: 784 entradas, $H$ neurônios escondidos (hiperparâmetro), 10 saídas. $W_1$ ($784 \times H$) e $W_2$ ($H \times 10$) com \texttt{np.random.randn} $\times\, 0{,}01$; $b_1$ ($1 \times H$) e $b_2$ ($1 \times 10$) zerados. Por que pesos pequenos e aleatórios: quebrar a simetria entre neurônios e começar perto da região linear das ativações.}
+A rede tem 784 entradas, $H$ neurônios escondidos e 10 saídas. Os pesos $W_1$ ($784 \times H$) e $W_2$ ($H \times 10$) são inicializados com \texttt{np.random.randn}$\,\times\, 0{,}01$, e os vieses $b_1$ e $b_2$, com zeros. Pesos aleatórios quebram a simetria (neurônios iguais receberiam gradientes iguais e nunca se diferenciariam), e a escala pequena faz a rede começar perto da região linear das ativações, com perda inicial de $\ln 10 \approx 2{,}30$.
 
 \subsection{Propagação e Funções de Ativação}
 \begin{align*}
 Z_1 &= X W_1 + b_1, & A_1 &= \mathrm{ReLU}(Z_1),\\
 Z_2 &= A_1 W_2 + b_2, & A_2 &= \mathrm{softmax}(Z_2).
 \end{align*}
-\nota{A escrever. Pontos:
-(1) $Z$ é a pré-ativação e $A$ a ativação; o $b$ é somado a todas as linhas por \emph{broadcasting};
-(2) ReLU, $\max(0, z)$, elemento a elemento: introduz a não linearidade, sem ela as duas camadas colapsariam numa só transformação linear;
-(3) softmax por linha transforma os \emph{logits} em probabilidades que somam 1;
-(4) decisão de projeto: subtrair o máximo de cada linha antes da exponencial. Não muda o resultado (a constante se cancela no numerador e no denominador) e evita estouro: sem ela, \texttt{softmax([1000, 1001, 1002])} devolvia \texttt{nan}.}
+$Z$ é a pré-ativação e $A$ a ativação; $b$ é somado a todas as linhas por \emph{broadcasting}. A ReLU, $\max(0, z)$, introduz a não linearidade: sem ela, as duas camadas colapsariam numa única transformação linear. O softmax, aplicado por linha, transforma os \emph{logits} em probabilidades que somam 1. Antes da exponencial, subtrai-se o máximo de cada linha: a constante se cancela no numerador e no denominador, mas evita estouro (sem ela, \texttt{softmax([1000, 1001, 1002])} devolvia \texttt{nan}).
 
 \subsection{Função de Perda e Treinamento}
 \[
 L = -\frac{1}{m} \sum_{i=1}^{m} \sum_{c=1}^{C} y_{ic} \log \hat{y}_{ic}
 \]
-\nota{A escrever. Pontos:
-(1) o \emph{one-hot} funciona como máscara: só sobra o $-\log$ da probabilidade dada à classe certa; dividir por $m$ torna a perda comparável entre conjuntos de tamanhos diferentes;
-(2) implementação vetorizada com \texttt{np.sum}: cerca de 90 vezes mais rápida que a versão com laços (9 ms contra 828 ms por chamada com 56.000 exemplos);
-(3) gradiente descendente em lote completo: a cada época, \texttt{forward}, perda, \texttt{backward} (fornecido) e $w \leftarrow w - \alpha\,\partial L / \partial w$;
-(4) acurácia: \texttt{argmax} por linha nos rótulos e nas previsões, comparação e média dos acertos;
-(5) as funções foram validadas contra os resultados esperados do enunciado (seções 3.1 a 3.6).}
+O \emph{one-hot} funciona como máscara: em cada exemplo só sobra o $-\log$ da probabilidade dada à classe certa, e a divisão por $m$ torna a perda comparável entre conjuntos de tamanhos diferentes. A versão vetorizada, com um único \texttt{np.sum}, foi cerca de 90 vezes mais rápida que a versão com laços (9\,ms contra 828\,ms com 56.000 exemplos).
+
+O treino usa gradiente descendente em lote completo: a cada época, \texttt{forward}, perda, \texttt{backward} (fornecido) e $w \leftarrow w - \alpha\,\partial L / \partial w$. A acurácia compara o \texttt{argmax} por linha dos rótulos e das previsões. As funções foram validadas contra os resultados esperados do enunciado (seções 3.1 a 3.6).
 
 \subsection{Protocolo Experimental}
-\nota{A escrever. Fatos:
-(1) os treinos rodaram fora da interface, com um script auxiliar (\texttt{experiments/run\_experiments.py}) que repete o laço do \texttt{server.py}: um passo de gradiente no treino e a acurácia no teste a cada época;
-(2) semente 42 antes de cada inicialização, para os treinos serem reproduzíveis e comparáveis;
-(3) busca coordenada: exp.~1 varia $\alpha$ com $H = 64$ e 500 épocas; a melhor taxa ($\alpha = 0{,}5$) fica fixa nos exp.~2 (varia $H$, 500 épocas) e 3 (varia as épocas, $H = 64$);
-(4) métricas: perda final de treino, acurácia final de teste e tempo de treino;
-(5) ambiente: AMD Ryzen 5 3600 (WSL2), Python 3.14.10, NumPy 2.3.5.}
+Os treinos rodaram fora da interface, com um script auxiliar (\texttt{experiments/run\_experiments.py}) que repete o laço do \texttt{server.py}: um passo de gradiente no treino e a acurácia no teste a cada época. A semente 42 é fixada antes de cada inicialização, o que torna os treinos reproduzíveis e comparáveis. A busca é coordenada: o exp.~1 varia $\alpha$ com $H = 64$ e 500 épocas; a melhor taxa ($\alpha = 0{,}5$) fica fixa nos exp.~2 (varia $H$, 500 épocas) e~3 (varia as épocas, $H = 64$). Ambiente: AMD Ryzen 5 3600 (WSL2), Python 3.14.10, NumPy 2.3.5.
 
 % ---------------------------------------------------------------------------
 \section{Experimentos e Resultados}
@@ -133,84 +112,45 @@ L = -\frac{1}{m} \sum_{i=1}^{m} \sum_{c=1}^{C} y_{ic} \log \hat{y}_{ic}
 \end{figure}
 
 \subsection{Taxa de Aprendizado}
-\nota{A escrever, a partir da Tabela~\ref{tab:resultados} e da Figura~\ref{fig:taxa}. Pontos:
-(1) com 0,001 e 0,01 a perda praticamente não sai de $\ln 10 \approx 2{,}30$ (o chute uniforme) em 500 épocas;
-(2) com 0,1 passa de 90\%;
-(3) 0,5 é a melhor (94,96\%), mas a curva tem picos de perda nas primeiras $\sim$100 épocas: passos grandes demais fazem a rede ultrapassar o mínimo antes de se acomodar.}
+Com $\alpha = 0{,}001$ a perda não sai de $\ln 10 \approx 2{,}30$ (o chute uniforme) em 500 épocas, e com $0{,}01$ só chega a 2,09 (Tabela~\ref{tab:resultados} e Figura~\ref{fig:taxa}): os passos são curtos demais. A partir de $0{,}1$ a acurácia passa de 90\%, e $0{,}5$ é a melhor taxa (94,96\%). Sua curva, porém, tem picos de perda nas primeiras $\sim$100 épocas (o maior perto da época 30, de 0,73 para 1,56): passos grandes demais fazem a rede ultrapassar o mínimo antes de se acomodar.
 
 \subsection{Número de Neurônios}
-\nota{A escrever, a partir da Tabela~\ref{tab:resultados} e da Figura~\ref{fig:neuronios}. Pontos:
-(1) a acurácia cresce com $H$, com retornos decrescentes: de 64 para 256, +0,5 ponto por 2,9 vezes o tempo;
-(2) com 4 neurônios e $\alpha = 0{,}5$ a acurácia oscila entre 50\% e 83\% até o fim e termina abaixo do pico (78,8\% contra 83,7\%): pouca capacidade e uma taxa grande demais para ela.}
+A acurácia cresce com $H$, com retornos decrescentes (Figura~\ref{fig:neuronios}): de 4 para 16 neurônios ganha quase 15 pontos, e de 64 para 256 só 0,5 ponto, por 2,9 vezes o tempo. Com 4 neurônios e $\alpha = 0{,}5$, a acurácia oscila entre cerca de 50\% e 84\% até o fim e termina abaixo do pico (78,8\% contra 83,7\%): pouca capacidade e uma taxa grande demais para ela.
 
 \subsection{Número de Épocas}
-\nota{A escrever. Pontos:
-(1) 100 épocas já passam de 90\%; o ganho de 200 para 500 é de 2,5 pontos;
-(2) com semente fixa e lote completo o treino é determinístico, então o treino de 50 épocas é igual às primeiras 50 épocas do de 500;
-(3) com 50 épocas a acurácia final (78,8\%) fica abaixo do pico do próprio treino (85,2\%), ainda dentro da fase instável.}
+Com 100 épocas a acurácia já passa de 90\%, e de 200 para 500 o ganho é de 2,5 pontos. Com semente fixa e lote completo o treino é determinístico, então o treino de 50 épocas é idêntico às primeiras 50 épocas do de 500. Com 50 épocas, a acurácia final (78,8\%) fica abaixo do pico do próprio treino (85,2\%): o treino para dentro da fase instável, logo após um pico de perda.
 
 \subsection{Melhor Configuração}
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{figures/fig_melhor.pdf}
-\caption{Curvas de perda e acurácia da melhor configuração ($\alpha = 0{,}5$, $H = 256$, 500 épocas).}
-\label{fig:melhor}
-\end{figure}
-\nota{A escrever. Fatos: $\alpha = 0{,}5$, $H = 256$, 500 épocas: perda final 0,1462 e acurácia de teste 95,44\% (Figura~\ref{fig:melhor}); 283 s de treino. Por dígito: 0: 97,5\%, 1: 97,8\%, 2: 94,9\%, 3: 94,0\%, 4: 94,8\%, 5: 94,2\%, 6: 97,5\%, 7: 96,6\%, 8: 93,2\%, 9: 93,5\%. Maiores confusões: 4$\to$9 (37), 9$\to$4 (32), 5$\to$3 (28), 8$\to$3 (26), 3$\to$5 (23), 9$\to$7 (20). Para comparar: o primeiro treino pela interface ($\alpha = 0{,}01$, $H = 8$, 10.000 épocas, cerca de 15 min) chegou a 90,63\%.}
+Com $\alpha = 0{,}5$, $H = 256$ e 500 épocas, a perda final foi 0,1462 e a acurácia de teste, 95,44\%, em 283\,s; ao fim, as curvas ainda melhoram, então mais épocas trariam algum ganho. Por dígito, os mais fáceis são 1 (97,8\%), 0 e 6 (97,5\%) e os mais difíceis, 8 (93,2\%) e 9 (93,5\%). As maiores confusões são 4$\to$9 (37 imagens), 9$\to$4 (32), 5$\to$3 (28), 8$\to$3 (26), 3$\to$5 (23) e 9$\to$7 (20). Para comparar, o primeiro treino pela interface ($\alpha = 0{,}01$, $H = 8$, 10.000 épocas, cerca de 15 min) chegou a 90,63\%.
 
 \subsection{Testes na Interface}
-\begin{figure}[t]
+Desenhando livremente, o desempenho ficou bem abaixo dos 95\%. A rede teve mais facilidade com o 4 e, especialmente, com o 2; nos demais dígitos, acertar dependeu de entender onde desenhar o número. Sem esse ajuste, o modelo quase nunca acertou o 8 e o 9, que também são os piores dígitos no teste. Quando peguei o jeito de desenhar com o centro de massa onde a rede esperava, perto do centro da grade como no MNIST, o desempenho ficou mais satisfatório.
+
+No caso da Figura~\ref{fig:deslocamento}, o centro de massa do ``1'' desenhado ficou em (11,9; 11,7), contra (14; 14) no MNIST, e a rede respondeu 8 (52\%); o mesmo desenho deslocado 2 pixels virou 1 (99\%). O efeito se generaliza: deslocar todas as imagens de teste 2 pixels para a direita derruba a acurácia de 95\% para 71\%, e mais neurônios não resolvem (as redes de 64 e 256 neurônios empatam em 71,3\%).
+
+\begin{figure}[h]
 \centering
 \includegraphics[width=\columnwidth]{figures/fig_deslocamento.pdf}
 \caption{Um ``1'' desenhado na interface (a), o mesmo desenho deslocado 2 pixels para a direita (b) e a média dos ``1'' do conjunto de teste (c), com a previsão da melhor rede. A linha tracejada marca a coluna central.}
 \label{fig:deslocamento}
 \end{figure}
 
-\begin{table}[t]
-\centering
-\begin{tabular}{lrrrrr}
-\toprule
- & \multicolumn{5}{c}{Deslocamento (pixels)} \\
-\cmidrule(lr){2-6}
-Rede & 0 & 1 & 2 & 3 & 4 \\
-\midrule
-$H = 8$ (interface)    & 90,6 & 84,9 & 64,0 & 41,8 & 21,7 \\
-$H = 64$               & 95,0 & 89,9 & 71,3 & 50,2 & 29,1 \\
-$H = 256$              & 95,4 & 90,6 & 71,3 & 48,2 & 26,1 \\
-\bottomrule
-\end{tabular}
-\caption{Acurácia de teste (\%) com todas as imagens de teste deslocadas para a direita.}
-\label{tab:deslocamento}
-\end{table}
-
-\nota{A escrever: suas percepções ao desenhar pelo menos 3 dígitos (o enunciado pede), quais a rede acerta com facilidade e quais confunde. Pontos já levantados:
-(1) desenhando livremente, a rede tem muita dificuldade com 8, 9 e similares, que também são os piores dígitos no teste (93,2\% e 93,5\%);
-(2) foi preciso aprender a desenhar deslocando o centro de massa do dígito para perto do centro da grade, como no MNIST;
-(3) o caso da Figura~\ref{fig:deslocamento}: o centro de massa do ``1'' desenhado ficou em (11,9; 11,7), contra (14; 14) no MNIST; a rede respondeu 8 (52\%), e o mesmo desenho deslocado 2 pixels virou 1 (99\%);
-(4) a Tabela~\ref{tab:deslocamento} generaliza: 2 pixels de deslocamento derrubam a acurácia de 95\% para 71\%, e mais neurônios não resolvem (64 e 256 empatam).}
-
 % ---------------------------------------------------------------------------
 \section{Discussão}
-\nota{A escrever. Pontos (o enunciado pede trade-offs e limitações):
-(1) \textbf{convergência $\times$ estabilidade}: taxas pequenas são estáveis mas não saem do lugar em 500 épocas; 0,5 converge rápido mas oscila no começo e desestabiliza redes pequenas;
-(2) \textbf{capacidade $\times$ custo}: o custo por época cresce com $H$ (o lote completo multiplica a matriz de 56.000 $\times$ 784 duas vezes por época), e o ganho de acurácia satura;
-(3) \textbf{por que o desenho falha}: o MNIST é padronizado (cada dígito redimensionado para uma caixa de 20$\times$20 e centralizado pelo centro de massa), enquanto a interface envia os pixels do canvas sem esse tratamento. Numa rede totalmente conectada, cada peso de $W_1$ está preso a um pixel fixo, então a rede não tem invariância a translação. Os 95\% valem para imagens com a mesma distribuição do treino, e o desenho livre vem de outra distribuição;
-(4) \textbf{confusões}: 4/9, 3/5/8 e 7/9 diferem em poucos pixels (um traço fechado ou aberto, uma curva a mais);
-(5) \textbf{limitações}: gradiente em lote completo (lento por época), uma camada escondida, uma única semente por configuração, busca coordenada em vez de grade completa.}
+\textbf{Trade-offs.} Taxas pequenas são estáveis, mas não saem do lugar em 500 épocas; 0,5 converge rápido, mas oscila no começo e desestabiliza redes pequenas. Já o custo por época cresce com $H$ (com o lote completo, a matriz de 56.000 $\times$ 784 é multiplicada duas vezes por época), enquanto o ganho de acurácia satura.
+
+\textbf{Por que o desenho falha.} O MNIST é padronizado: cada dígito foi redimensionado para uma caixa de 20$\times$20 e centralizado pelo centro de massa \citep{lecun1998gradient}, e a interface envia os pixels do canvas sem esse tratamento. Numa rede totalmente conectada, cada peso de $W_1$ está preso a um pixel fixo, então a rede não tem invariância a translação; \citet{lecun1998gradient} apontam essa como a principal deficiência dessas redes para imagens e a motivação das redes convolucionais, que replicam os pesos ao longo da imagem. Os 95\% valem para imagens com a mesma distribuição do treino, e o desenho livre vem de outra. É um exemplo de como a acurácia e a perda podem enganar quando o conjunto de teste não representa a realidade como um todo: com essa sensibilidade a poucos pixels, o modelo é quase inutilizável na prática. As confusões (4/9, 3/5/8, 7/9) seguem a mesma lógica: são dígitos que diferem em poucos pixels, como um traço fechado ou aberto.
+
+\textbf{Limitações.} Gradiente em lote completo (lento por época), uma camada escondida, uma única semente por configuração (diferenças de meio ponto podem ser ruído), busca coordenada em vez de grade completa e escolha da melhor configuração pelo próprio conjunto de teste, sem validação separada.
 
 % ---------------------------------------------------------------------------
 \section{Conclusão}
-\nota{A escrever. Pontos: o que funcionou melhor ($\alpha$ alta, mais neurônios, 95,44\%); o papel decisivo da taxa de aprendizado no tempo de treino. Melhorias: pré-processar o desenho como o MNIST (recorte, redimensionamento, centro de massa); aumento de dados com deslocamentos; minilotes; redes convolucionais, que são invariantes a translação por construção.}
+Funcionaram melhor uma taxa de aprendizado alta e mais neurônios, com 95,44\% de acurácia; a taxa foi decisiva para o tempo de treino, já que a melhor rede superou em 5 minutos um treino de 15 minutos pela interface. Como melhorias: pré-processar o desenho como o MNIST (recorte, redimensionamento e centralização pelo centro de massa), aumentar os dados com deslocamentos, usar minilotes e usar redes convolucionais, que compartilham os pesos no espaço e por isso toleram deslocamentos.
 
 % ---------------------------------------------------------------------------
 \section{Declaração de Uso de IA}
-\nota{A escrever. O que foi usado: Claude Code (modelo Claude Opus 5.5, da Anthropic). Para quê:
-(1) explicar conceitos e NumPy (pré-ativação, softmax e estabilidade numérica, \texttt{axis}/\texttt{keepdims}/\emph{broadcasting}, entropia cruzada, acurácia);
-(2) validar as funções contra os resultados esperados do enunciado com um script de testes;
-(3) depurar o salvamento dos pesos (o servidor rodava fora de \texttt{src/}) e recuperar o primeiro treino;
-(4) analisar o caso do desenho mal classificado (deslocamento e centro de massa);
-(5) gerar os scripts auxiliares de experimentos (\texttt{run\_experiments.py}) e de figuras (\texttt{make\_figures.py});
-(6) montar o esqueleto deste relatório e as tabelas.
-As funções do \texttt{learn.py} foram escritas por mim (a IA só condensou em uma linha a \texttt{accuracy}, a partir da minha versão de três linhas). Link para as transcrições.}
+Foi usado o Claude Code (modelo Claude Opus 5.5, da Anthropic) para: explicar conceitos e NumPy (softmax e estabilidade numérica, \texttt{axis}, \texttt{keepdims}, \emph{broadcasting}, entropia cruzada); validar as funções contra os resultados esperados do enunciado; depurar o salvamento dos pesos e recuperar o primeiro treino; analisar o desenho mal classificado; gerar os scripts auxiliares de experimentos e de figuras; pesquisar a referência sobre invariância a translação; escrever o README do repositório; e montar o esqueleto deste relatório, contendo as tabelas. O texto final foi redigido e escrito por mim, assim como as funções do \texttt{learn.py}. Transcrições: \url{https://github.com/Vipigal/mnist-neural-network-training/blob/main/uso-de-ia/conversa-claude-code.md}.
+
+\bibliography{referencias}
 
 \end{document}
