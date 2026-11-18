@@ -1,0 +1,13 @@
+experimento,treino,learning_rate,hidden_size,epochs,loss_final_treino,acuracia_final_teste,melhor_acuracia_teste,segundos,teve_nan
+1_taxa_aprendizado,lr0.001_h64_e500,0.001,64,500,2.299724,0.149143,0.149143,117.7,False
+1_taxa_aprendizado,lr0.01_h64_e500,0.01,64,500,2.089094,0.451857,0.451857,117.9,False
+1_taxa_aprendizado,lr0.1_h64_e500,0.1,64,500,0.341717,0.902143,0.902143,110.1,False
+1_taxa_aprendizado,lr0.5_h64_e500,0.5,64,500,0.160086,0.949643,0.949643,99.2,False
+2_neuronios,lr0.5_h4_e500,0.5,4,500,0.677594,0.788286,0.836643,65.9,False
+2_neuronios,lr0.5_h16_e500,0.5,16,500,0.210239,0.937214,0.937214,67.7,False
+2_neuronios,lr0.5_h64_e500,0.5,64,500,0.160086,0.949643,0.949643,99.2,False
+2_neuronios,lr0.5_h256_e500,0.5,256,500,0.146228,0.954429,0.954429,283.2,False
+3_epocas,lr0.5_h64_e50,0.5,64,50,0.684857,0.788357,0.852429,10.0,False
+3_epocas,lr0.5_h64_e100,0.5,64,100,0.337993,0.902429,0.904143,18.9,False
+3_epocas,lr0.5_h64_e200,0.5,64,200,0.258546,0.924286,0.924286,37.5,False
+3_epocas,lr0.5_h64_e500,0.5,64,500,0.160086,0.949643,0.949643,99.2,False
